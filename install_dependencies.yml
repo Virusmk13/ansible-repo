@@ -4,7 +4,7 @@
   become: yes
   vars:
     app_dir: "/home/ubuntu/task-manager"
-    database_url: "postgresql://admin:mysecretpassword@task-manager-db.cft9xqzpsg78.us-west-2.rds.amazonaws.com:5432/task_manager_db"
+    database_url: "postgresql://postgres:12345678@taskmanagerapi-db.c1c2cquoaakb.eu-north-1.rds.amazonAaws.com:5432/taskmanagerapi-db"
   tasks:
     - name: Update apt cache
       apt:
@@ -17,8 +17,7 @@
           - python3-pip
           - python3-venv
           - git
-          - libqdev
-          - pydantic
+          - libpq-dev
         state: present
 
     - name: Clone the repository
@@ -29,16 +28,28 @@
 
     - name: Set environment variable for database connection
       copy:
-        content: "DATABASE_URL={{ database_url }}"
-        dest: "{{ app_dir }}"
+        content: "DATABASE_URL={{ database_url }}\n"
+        dest: "{{ app_dir }}/.env"
 
     - name: Create a virtual environment
-      command:
-        cmd: python3 -m venv venv
+      command: python3 -m venv venv
+      args:
         chdir: "{{ app_dir }}"
 
+    - name: Install Python packages
+      pip:
+        name:
+          - fastapi
+          - uvicorn
+          - sqlalchemy
+          - psycopg2-binary
+          - python-dotenv
+          - pydantic
+        state: present
+
     - name: Start the application with Uvicorn
-      command: "uvicorn main:app --host 0.0.0.0 --port 80 --reload
+      command: uvicorn main:app --host 0.0.0.0 --port 80 --reload
+      args:
         chdir: "{{ app_dir }}"
       async: 3600
       poll: 0
