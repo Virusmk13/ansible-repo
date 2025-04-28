@@ -1,0 +1,43 @@
+name: Deploy to EC2
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout the repository
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+
+      - name: Install required system packages
+        run: |
+          sudo apt update
+          sudo apt install -y ansible git python3-pip python3-venv
+
+      - name: Set up SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+
+      - name: Run Ansible Playbook
+        env:
+          ANSIBLE_HOST_KEY_CHECKING: "False"
+          EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
+          EC2_IP: ${{ secrets.EC2_IP }}
+          EC2_USER: "ubuntu"
+        run: |
+          ansible-playbook install_dependencies.yml \
+            -i "${{ secrets.EC2_HOST }}," \
+            --private-key ~/.ssh/id_rsa \
+            --user "${{ secrets.EC2_USER }}" \
+            --extra-vars "ansible_ssh_private_key_file=~/.ssh/id_rsa"
