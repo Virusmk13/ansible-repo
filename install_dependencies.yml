@@ -23,27 +23,22 @@
 
     - name: Clone the repository
       git:
-        repo: 'https://github.com/user/repository.git'
+        repo: 'https://github.com/Virusmk13/Task-Manager-API'
         dest: "{{ app_dir }}"
         version: main
 
     - name: Set environment variable for database connection
       copy:
-        content: "DATABASE_URL={{ database_url }}\n"
-        dest: "{{ app_dir }}/.env"
+        content: "DATABASE_URL={{ database_url }}"
+        dest: "{{ app_dir }}"
 
     - name: Create a virtual environment
       command:
         cmd: python3 -m venv venv
         chdir: "{{ app_dir }}"
 
-    - name: Install dependencies from requirements.txt
-      pip:
-        requirements: "{{ app_dir }}/requirements.txt"
-        virtualenv: "{{ app_dir }}/venv"
-
     - name: Start the application with Uvicorn
       command: "uvicorn main:app --host 0.0.0.0 --port 80 --reload
-      chdir: "{{ app_dir }}"
+        chdir: "{{ app_dir }}"
       async: 3600
       poll: 0
