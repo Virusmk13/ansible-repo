@@ -1,0 +1,47 @@
+---
+- name: Setup EC2 for Task Manager App
+  hosts: ec2_instances
+  become: yes
+  vars:
+    app_dir: "/home/ubuntu/task-manager"
+    database_url: "postgresql://admin:mysecretpassword@task-manager-db.cft9xqzpsg78.us-west-2.rds.amazonaws.com:5432/task_manager_db"
+  tasks:
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+        cache_valid_time: 3600
+
+    - name: Install required packages
+      apt:
+        name:
+          - python3-pip
+          - python3-venv
+          - git
+        state: present
+
+    - name: Clone the repository
+      git:
+        repo: 'https://github.com/user/repository.git'
+        dest: "{{ app_dir }}"
+        version: main
+
+    - name: Set environment variable for database connection
+      copy:
+        content: "DATABASE_URL={{ database_url }}\n"
+        dest: "{{ app_dir }}/.env"
+
+    - name: Create a virtual environment
+      command:
+        cmd: python3 -m venv venv
+        chdir: "{{ app_dir }}"
+
+    - name: Install dependencies from requirements.txt
+      pip:
+        requirements: "{{ app_dir }}/requirements.txt"
+        virtualenv: "{{ app_dir }}/venv"
+
+    - name: Start the application with Uvicorn
+      command: "{{ app_dir }}/venv/bin/uvicorn main:app --host 0.0.0.0 --port 80 --reload"
+      chdir: "{{ app_dir }}"
+      async: 3600
+      poll: 0
