@@ -1,0 +1,78 @@
+---
+- name: Deploy app and setup services on EC2
+  hosts: ec2
+  become: true
+  vars:
+    docker_image: "virusmk13/some-image:e2311c69f9e3a4069157174d7d3f713d6fe0a99d"
+
+  tasks:
+
+    - name: Install required packages
+      apt:
+        name:
+          - docker.io
+          - nginx
+        update_cache: yes
+        state: present
+
+    - name: Ensure Docker is started
+      systemd:
+        name: docker
+        state: started
+        enabled: yes
+
+    - name: Log in to DockerHub
+      docker_login:
+        username: "{{ docker_user }}"
+        password: "{{ docker_password }}"
+
+    - name: Pull the Docker image
+      community.docker.docker_image:
+        name: "{{ docker_image }}"
+        source: pull
+
+    - name: Run the Docker container
+      community.docker.docker_container:
+        name: restful-api
+        image: "{{ docker_image }}"
+        ports:
+          - "8080:8080"
+        state: started
+        restart_policy: always
+        env:
+          DB_HOST: "{{ rds_host }}"
+          DB_PORT: "{{ rds_port }}"
+          DB_NAME: "{{ rds_name }}"
+          DB_USER: "{{ rds_user }}"
+          DB_PASSWORD: "{{ rds_password }}"
+
+    - name: Configure Nginx reverse proxy
+      copy:
+        dest: /etc/nginx/sites-available/restful-api
+        content: |
+          server {
+              listen 80;
+              server_name _;
+              location / {
+                  proxy_pass http://localhost:8080;
+                  proxy_set_header Host $host;
+                  proxy_set_header X-Real-IP $remote_addr;
+              }
+          }
+
+    - name: Enable Nginx site config
+      file:
+        src: /etc/nginx/sites-available/restful-api
+        dest: /etc/nginx/sites-enabled/restful-api
+        state: link
+        force: yes
+
+    - name: Remove default Nginx config
+      file:
+        path: /etc/nginx/sites-enabled/default
+        state: absent
+
+    - name: Restart Nginx
+      systemd:
+        name: nginx
+        state: restarted
