@@ -1,0 +1,41 @@
+name: Deploy to EC2
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Install Ansible
+        run: |
+          sudo apt update
+          sudo apt install -y ansible
+
+      - name: Set up SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.EC2_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Create Ansible inventory
+        run: |
+          echo "[ec2]" > inventory
+          echo "${{ secrets.EC2_HOST }} ansible_user=${{ secrets.EC2_USER }} ansible_ssh_private_key_file=~/.ssh/id_rsa" >> inventory
+
+      - name: Run Ansible playbook
+        run: |
+          ansible-playbook deploy/Deploy.yml -i inventory \
+            -e "docker_user=${{ secrets.DOCKER_USER }}" \
+            -e "docker_password=${{ secrets.DOCKER_PASSWORD }}" \
+            -e "rds_host=${{ secrets.RDS_HOST }}" \
+            -e "rds_port=${{ secrets.RDS_PORT }}" \
+            -e "rds_name=${{ secrets.RDS_DB }}" \
+            -e "rds_user=${{ secrets.RDS_USER }}" \
+            -e "rds_password=${{ secrets.RDS_PASSWORD }}"
