@@ -1,10 +1,9 @@
 ---
-- name: Deploy app from GitHub and build Docker image on EC2
+- name: Deploy app from GitHub on EC2 and install dependencies
   hosts: ec2
   become: true
   vars:
     app_dir: /opt/student-api
-    image_name: student-api:latest
 
   tasks:
     - name: Install required packages
@@ -57,28 +56,11 @@
       shell: mvn clean package -f {{ app_dir }}/pom.xml
       args:
         chdir: "{{ app_dir }}"
-    
-    - name: Build Docker image from the cloned repo
-      community.docker.docker_image:
-        name: "{{ image_name }}"
-        build:
-          path: "{{ app_dir }}"
-        state: present
 
-    - name: Run the Docker container from local image
-      community.docker.docker_container:
-        name: student-api
-        image: "{{ image_name }}"
-        ports:
-          - "8080:8080"
-        state: started
-        restart_policy: always
-        env:
-          DB_HOST: "{{ rds_host }}"
-          DB_PORT: "{{ rds_port }}"
-          DB_NAME: "{{ rds_name }}"
-          DB_USER: "{{ rds_user }}"
-          DB_PASSWORD: "{{ rds_password }}"
+    - name: Install project dependencies using Maven
+      shell: mvn install -f {{ app_dir }}/pom.xml
+      args:
+        chdir: "{{ app_dir }}"
 
     - name: Configure Nginx reverse proxy
       copy:
