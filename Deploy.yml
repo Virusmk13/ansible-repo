@@ -1,9 +1,10 @@
 ---
-- name: Deploy app and setup services on EC2
+- name: Deploy app from GitHub and build Docker image on EC2
   hosts: ec2
   become: true
   vars:
-    docker_image: "virusmk13/some-image:e2311c69f9e3a4069157174d7d3f713d6fe0a99d"
+    app_dir: /opt/restful-api
+    image_name: restful-api:latest
 
   tasks:
 
@@ -12,6 +13,7 @@
         name:
           - docker.io
           - nginx
+          - git
         update_cache: yes
         state: present
 
@@ -21,20 +23,46 @@
         state: started
         enabled: yes
 
-    - name: Log in to DockerHub
-      docker_login:
-        username: "{{ docker_user }}"
-        password: "{{ docker_password }}"
+    - name: Ensure app directory exists and is clean
+      file:
+        path: "{{ app_dir }}"
+        state: directory
+        owner: root
+        group: root
+        mode: '0755'
 
-    - name: Pull the Docker image
+    - name: Remove any previous contents from app directory
+      file:
+        path: "{{ app_dir }}"
+        state: absent
+      when: app_dir is defined
+      ignore_errors: true
+
+    - name: Recreate app directory after cleanup
+      file:
+        path: "{{ app_dir }}"
+        state: directory
+        owner: root
+        group: root
+        mode: '0755'
+
+    - name: Clone the application repository
+      git:
+        repo: https://github.com/Virusmk13/Restfull-API.git
+        dest: "{{ app_dir }}"
+        version: main
+        force: yes
+
+    - name: Build Docker image from the cloned repo
       community.docker.docker_image:
-        name: "{{ docker_image }}"
-        source: pull
+        name: "{{ image_name }}"
+        build:
+          path: "{{ app_dir }}"
 
-    - name: Run the Docker container
+    - name: Run the Docker container from local image
       community.docker.docker_container:
         name: restful-api
-        image: "{{ docker_image }}"
+        image: "{{ image_name }}"
         ports:
           - "8080:8080"
         state: started
