@@ -1,5 +1,5 @@
 ---
-- name: Deploy app from GitHub on EC2 and install dependencies
+- name: Deploy app from GitHub and install dependencies on EC2
   hosts: ec2
   become: true
   vars:
@@ -53,10 +53,10 @@
         force: yes
 
     - name: Install project dependencies using Maven
-      shell: mvn install -f {{ app_dir }}/pom.xml
+      shell: mvn dependency:resolve -f {{ app_dir }}/pom.xml
       args:
         chdir: "{{ app_dir }}"
-
+    
     - name: Configure Nginx reverse proxy
       copy:
         dest: /etc/nginx/sites-available/student-api
