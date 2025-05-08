@@ -23,22 +23,13 @@
         state: started
         enabled: yes
 
-    - name: Ensure app directory exists and is clean
-      file:
-        path: "{{ app_dir }}"
-        state: directory
-        owner: root
-        group: root
-        mode: '0755'
-
     - name: Remove any previous contents from app directory
       file:
         path: "{{ app_dir }}"
         state: absent
-      when: app_dir is defined
       ignore_errors: true
 
-    - name: Recreate app directory after cleanup
+    - name: Recreate app directory
       file:
         path: "{{ app_dir }}"
         state: directory
@@ -58,6 +49,8 @@
         name: "{{ image_name }}"
         build:
           path: "{{ app_dir }}"
+        source: build
+        state: present
 
     - name: Run the Docker container from local image
       community.docker.docker_container:
