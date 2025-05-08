@@ -3,17 +3,17 @@
   hosts: ec2
   become: true
   vars:
-    app_dir: /opt/restful-api
-    image_name: restful-api:latest
+    app_dir: /opt/student-api
+    image_name: student-api:latest
 
   tasks:
-
     - name: Install required packages
       apt:
         name:
           - docker.io
           - nginx
           - git
+          - maven
         update_cache: yes
         state: present
 
@@ -23,13 +23,22 @@
         state: started
         enabled: yes
 
+    - name: Ensure app directory exists and is clean
+      file:
+        path: "{{ app_dir }}"
+        state: directory
+        owner: root
+        group: root
+        mode: '0755'
+
     - name: Remove any previous contents from app directory
       file:
         path: "{{ app_dir }}"
         state: absent
+      when: app_dir is defined
       ignore_errors: true
 
-    - name: Recreate app directory
+    - name: Recreate app directory after cleanup
       file:
         path: "{{ app_dir }}"
         state: directory
@@ -44,17 +53,21 @@
         version: main
         force: yes
 
+    - name: Build the project using Maven
+      shell: mvn clean package -f {{ app_dir }}/pom.xml
+      args:
+        chdir: "{{ app_dir }}"
+    
     - name: Build Docker image from the cloned repo
       community.docker.docker_image:
         name: "{{ image_name }}"
         build:
           path: "{{ app_dir }}"
-        source: build
         state: present
 
     - name: Run the Docker container from local image
       community.docker.docker_container:
-        name: restful-api
+        name: student-api
         image: "{{ image_name }}"
         ports:
           - "8080:8080"
@@ -69,11 +82,12 @@
 
     - name: Configure Nginx reverse proxy
       copy:
-        dest: /etc/nginx/sites-available/restful-api
+        dest: /etc/nginx/sites-available/student-api
         content: |
           server {
               listen 80;
               server_name _;
+
               location / {
                   proxy_pass http://localhost:8080;
                   proxy_set_header Host $host;
@@ -83,8 +97,8 @@
 
     - name: Enable Nginx site config
       file:
-        src: /etc/nginx/sites-available/restful-api
-        dest: /etc/nginx/sites-enabled/restful-api
+        src: /etc/nginx/sites-available/student-api
+        dest: /etc/nginx/sites-enabled/student-api
         state: link
         force: yes
 
