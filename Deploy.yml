@@ -8,23 +8,14 @@
   tasks:
     - name: Clean up old project, Ansible temp files, and free up disk space
       shell: |
-        rm -rf {{ project_dir }} \
-               ~/.ansible \
-               /tmp/* \
-               /var/tmp/* \
-               /root/.ansible \
-               /var/log/* \
-               /home/*/.ansible
+        rm -rf {{ project_dir }} ~/.ansible /tmp/* /var/tmp/* /var/log/*
         apt-get clean
         journalctl --rotate
         journalctl --vacuum-time=1d || true
+        sync
+        echo 3 > /proc/sys/vm/drop_caches
       args:
         warn: false
-
-    - name: Check free disk space
-        run: |
-          ssh -i "$HOME/.ssh/id_rsa" ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} "df -h && free -h"
-
 
     - name: Create fresh project directory
       file:
@@ -38,10 +29,18 @@
         dest: "{{ project_dir }}/"
         mode: '0755'
 
-    - name: Confirm upload success
+    - name: List uploaded files
       shell: ls -l "{{ project_dir }}"
       register: listing
 
     - name: Show uploaded files
       debug:
         var: listing.stdout_lines
+
+    - name: Check disk space on EC2
+      shell: df -h
+      register: disk_output
+
+    - name: Show free disk space
+      debug:
+        var: disk_output.stdout_lines
