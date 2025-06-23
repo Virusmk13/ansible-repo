@@ -6,13 +6,22 @@
     project_dir: /opt/unity-game
 
   tasks:
-    - name: Ensure target directory is absent
-      file:
-        path: "{{ project_dir }}"
-        state: absent
-        force: true
+    - name: Clean up old project, Ansible temp files, and free up disk space
+      shell: |
+        rm -rf {{ project_dir }} \
+               ~/.ansible \
+               /tmp/* \
+               /var/tmp/* \
+               /root/.ansible \
+               /var/log/* \
+               /home/*/.ansible
+        apt-get clean
+        journalctl --rotate
+        journalctl --vacuum-time=1d || true
+      args:
+        warn: false
 
-    - name: Create project directory
+    - name: Create fresh project directory
       file:
         path: "{{ project_dir }}"
         state: directory
@@ -20,7 +29,7 @@
 
     - name: Upload Unity project from runner to EC2
       copy:
-        src: ./ 
+        src: ./  # repo e deja checkout în GitHub Actions
         dest: "{{ project_dir }}/"
         mode: '0755'
 
