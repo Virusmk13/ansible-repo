@@ -1,27 +1,31 @@
 ---
-- name: Clone Unity game repository on EC2
+- name: Upload Unity project from GitHub Actions to EC2
   hosts: ec2
   become: true
   vars:
-    repo_url: https://github.com/Virusmk13/Licenta.git
     project_dir: /opt/unity-game
 
   tasks:
-    - name: Install Git
+    - name: Install required packages
       apt:
         name: git
         state: present
         update_cache: yes
 
-    - name: Ensure target directory is absent (clean clone)
+    - name: Ensure target directory is absent
       file:
         path: "{{ project_dir }}"
         state: absent
         force: true
 
-    - name: Clone the Unity project repository
-      git:
-        repo: "{{ repo_url }}"
-        dest: "{{ project_dir }}"
-        version: main
-        force: yes
+    - name: Create project directory
+      file:
+        path: "{{ project_dir }}"
+        state: directory
+        mode: '0755'
+
+    - name: Upload Unity project from runner to EC2
+      copy:
+        src: ./  # repo e deja checkout în GitHub Actions
+        dest: "{{ project_dir }}/"
+        mode: '0755'
