@@ -6,12 +6,6 @@
     project_dir: /opt/unity-game
 
   tasks:
-    - name: Install required packages
-      apt:
-        name: git
-        state: present
-        update_cache: yes
-
     - name: Ensure target directory is absent
       file:
         path: "{{ project_dir }}"
@@ -26,6 +20,14 @@
 
     - name: Upload Unity project from runner to EC2
       copy:
-        src: ./  # repo e deja checkout în GitHub Actions
+        src: ./ 
         dest: "{{ project_dir }}/"
         mode: '0755'
+
+    - name: Confirm upload success
+      shell: ls -l "{{ project_dir }}"
+      register: listing
+
+    - name: Show uploaded files
+      debug:
+        var: listing.stdout_lines
