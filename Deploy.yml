@@ -1,90 +1,27 @@
 ---
-- name: Deploy app from GitHub and install dependencies on EC2
+- name: Clone Unity game repository on EC2
   hosts: ec2
   become: true
   vars:
-    app_dir: /opt/student-api
+    repo_url: https://github.com/Virusmk13/Licenta.git
+    project_dir: /opt/unity-game
 
   tasks:
-    - name: Install required packages
+    - name: Install Git
       apt:
-        name:
-          - docker.io
-          - nginx
-          - git
-          - maven
-        update_cache: yes
+        name: git
         state: present
+        update_cache: yes
 
-    - name: Ensure Docker is started
-      systemd:
-        name: docker
-        state: started
-        enabled: yes
-
-    - name: Ensure app directory exists and is clean
+    - name: Ensure target directory is absent (clean clone)
       file:
-        path: "{{ app_dir }}"
-        state: directory
-        owner: root
-        group: root
-        mode: '0755'
-
-    - name: Remove any previous contents from app directory
-      file:
-        path: "{{ app_dir }}"
+        path: "{{ project_dir }}"
         state: absent
-      when: app_dir is defined
-      ignore_errors: true
+        force: true
 
-    - name: Recreate app directory after cleanup
-      file:
-        path: "{{ app_dir }}"
-        state: directory
-        owner: root
-        group: root
-        mode: '0755'
-
-    - name: Clone the application repository
+    - name: Clone the Unity project repository
       git:
-        repo: https://github.com/Virusmk13/Restfull-API.git
-        dest: "{{ app_dir }}"
+        repo: "{{ repo_url }}"
+        dest: "{{ project_dir }}"
         version: main
         force: yes
-
-    - name: Install project dependencies using Maven
-      shell: mvn dependency:resolve -f {{ app_dir }}/pom.xml
-      args:
-        chdir: "{{ app_dir }}"
-    
-    - name: Configure Nginx reverse proxy
-      copy:
-        dest: /etc/nginx/sites-available/student-api
-        content: |
-          server {
-              listen 80;
-              server_name _;
-
-              location / {
-                  proxy_pass http://localhost:8080;
-                  proxy_set_header Host $host;
-                  proxy_set_header X-Real-IP $remote_addr;
-              }
-          }
-
-    - name: Enable Nginx site config
-      file:
-        src: /etc/nginx/sites-available/student-api
-        dest: /etc/nginx/sites-enabled/student-api
-        state: link
-        force: yes
-
-    - name: Remove default Nginx config
-      file:
-        path: /etc/nginx/sites-enabled/default
-        state: absent
-
-    - name: Restart Nginx
-      systemd:
-        name: nginx
-        state: restarted
